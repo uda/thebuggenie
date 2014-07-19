@@ -2092,8 +2092,9 @@
 		{
 			if ($this->_duplicate_issues === null)
 			{
+				$this->_duplicate_issues = array();
 				$this->_b2dbLazyload('_duplicate_issues');
-				if ($this->_duplicate_issues) foreach ($this->_duplicate_issues as $issue_id => $issue)
+				foreach ($this->_duplicate_issues as $issue_id => $issue)
 				{
 					if (!$issue->hasAccess()) unset($this->_duplicate_issues[$issue_id]);
 				}
