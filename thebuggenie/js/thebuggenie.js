@@ -1054,7 +1054,7 @@ TBG.Main.Profile.changePassword = function(url) {
 	TBG.Main.Helpers.ajax(url, {
 		form: 'change_password_form',
 		loading: {indicator: 'change_password_indicator'},
-		success: {reset: 'change_password_form'}
+		success: {reset: 'change_password_form', hide: 'change_password_div'}
 	});
 };
 
@@ -1406,9 +1406,18 @@ TBG.Main.Login.register = function(url)
 			}
 		},
 		success: {
-			hide: 'register',
+			hide: 'register_form',
 			update: {element: 'register_message', from: 'loginmessage'},
-			show: 'register2'
+			callback: function(json) {
+				if (json.activated) {
+					$('register_username_hidden').setValue($('fieldusername').getValue());
+					$('register_password_hidden').setValue(json.one_time_password);
+					$('register_auto_form').show();
+				} else {
+					$('register_confirm_back').show();
+				}
+				$('register_confirmation').show();
+			}
 		},
 		failure: {
 			show: 'register_button',
@@ -1416,6 +1425,53 @@ TBG.Main.Login.register = function(url)
 				json.fields.each(function(field) {
 					$(field).setStyle({backgroundColor: '#FBB'});
 				});
+			}
+		}
+	});
+};
+
+TBG.Main.Login.checkUsernameAvailability = function(url)
+{
+	TBG.Main.Helpers.ajax(url, {
+		form: 'register_form',
+		loading: {
+			indicator: 'username_check_indicator',
+			callback: function() {
+				$('register_button').disable();
+				$('username_check_indicator').show();
+			}
+		},
+		complete: {
+			callback: function(json) {
+				$('username_check_indicator').hide();
+				if (json.available) {
+					$('fieldusername').removeClassName('invalid');
+					$('fieldusername').addClassName('valid');
+					$('register_button').enable();
+				} else {
+					$('fieldusername').removeClassName('valid');
+					$('fieldusername').addClassName('invalid');
+				}
+			}
+		}
+	});
+};
+
+TBG.Main.Login.registerAutologin = function(url)
+{
+	TBG.Main.Helpers.ajax(url, {
+		form: 'register_auto_form',
+		loading: {
+			indicator: 'register_autologin_indicator',
+			callback: function() {
+				$('register_autologin_button').disable();
+				$('register_autologin_indicator').show();
+			}
+		},
+		complete: {
+			callback: function() {
+				$('register_autologin_indicator').hide();
+				$('register_autologin_button').enable();
 			}
 		}
 	});
@@ -1436,6 +1492,31 @@ TBG.Main.Login.login = function(url)
 			callback: function() {
 				$('login_indicator').hide();
 				$('login_button').enable();
+			}
+		}
+	});
+};
+
+TBG.Main.Login.elevatedLogin = function(url)
+{
+	TBG.Main.Helpers.ajax(url, {
+		form: 'login_form',
+		loading: {
+			indicator: 'elevated_login_indicator',
+			callback: function() {
+				$('login_button').disable();
+				$('elevated_login_indicator').show();
+			}
+		},
+		complete: {
+			callback: function(json) {
+				$('elevated_login_indicator').hide();
+				if (json.elevated) {
+					window.location.reload(true);
+				} else {
+					TBG.Main.Helpers.Message.error(json.error);
+					$('login_button').enable();
+				}
 			}
 		}
 	});
@@ -3065,12 +3146,11 @@ TBG.Config.Workflows.Scheme.update = function(url, scheme_id) {
 	});
 }
 
-TBG.Config.Workflows.Transition.Validations.add = function(url, mode) {
+TBG.Config.Workflows.Transition.Validations.add = function(url, mode, key) {
 	TBG.Main.Helpers.ajax(url, {
-		form: 'workflowtransition' + mode + 'validationrule_add_form',
 		loading: {indicator: 'workflowtransition' + mode + 'validationrule_add_indicator'},
 		success: {
-			hide: ['no_workflowtransition' + mode + 'validationrules', 'add_workflowtransition' + mode + 'validationrule_' + $('workflowtransition' + mode + 'validationrule_add_type').getValue()],
+			hide: ['no_workflowtransition' + mode + 'validationrules', 'add_workflowtransition' + mode + 'validationrule_' + key],
 			update: {element: 'workflowtransition' + mode + 'validationrules_list', insertion: true}
 		}
 	});
@@ -3092,18 +3172,20 @@ TBG.Config.Workflows.Transition.Validations.remove = function(url, rule_id, type
 	TBG.Main.Helpers.ajax(url, {
 		loading: {indicator: 'workflowtransitionvalidationrule_' + rule_id + '_delete_indicator'},
 		success: {
-			remove: ['workflowtransitionvalidationrule_' + rule_id + '_delete', 'workflowtransitionvalidationrule_' + rule_id],
-			show: ['add_workflowtransition' + type + 'validationrule_' + mode]
+			remove: ['workflowtransitionvalidationrule_' + rule_id],
+			show: ['add_workflowtransition' + type + 'validationrule_' + mode],
+			callback: function() {
+				TBG.Main.Helpers.Dialog.dismiss();
+			}
 		}
 	});
 }
 
-TBG.Config.Workflows.Transition.Actions.add = function(url) {
+TBG.Config.Workflows.Transition.Actions.add = function(url, key) {
 	TBG.Main.Helpers.ajax(url, {
-		form: 'workflowtransitionaction_add_form',
 		loading: {indicator: 'workflowtransitionaction_add_indicator'},
 		success: {
-			hide: ['no_workflowtransitionactions', 'add_workflowtransitionaction_' + $('workflowtransitionaction_add_type').getValue()],
+			hide: ['no_workflowtransitionactions', 'add_workflowtransitionaction_' + key],
 			update: {element: 'workflowtransitionactions_list', insertion: true}
 		}
 	});

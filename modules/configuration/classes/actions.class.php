@@ -64,6 +64,11 @@
 		const CSV_IDENTIFIER_TYPE_USER  = 1;
 		const CSV_IDENTIFIER_TYPE_TEAM  = 2;
 
+		public function getAuthenticationMethodForAction($action)
+		{
+			return (TBGSettings::isElevatedLoginRequired()) ? TBGAction::AUTHENTICATION_METHOD_ELEVATED : TBGAction::AUTHENTICATION_METHOD_CORE;
+		}
+		
 		/**
 		 * Pre-execute function
 		 * 
@@ -397,7 +402,7 @@
 								TBGSettings::SETTING_TBG_NAME, TBGSettings::SETTING_TBG_NAME_HTML, TBGSettings::SETTING_DEFAULT_CHARSET, TBGSettings::SETTING_DEFAULT_LANGUAGE,
 								TBGSettings::SETTING_SERVER_TIMEZONE, TBGSettings::SETTING_SYNTAX_HIGHLIGHT_DEFAULT_LANGUAGE, TBGSettings::SETTING_SYNTAX_HIGHLIGHT_DEFAULT_INTERVAL,
 								TBGSettings::SETTING_SYNTAX_HIGHLIGHT_DEFAULT_NUMBERING, TBGSettings::SETTING_PREVIEW_COMMENT_IMAGES, TBGSettings::SETTING_HEADER_LINK,
-								TBGSettings::SETTING_MAINTENANCE_MESSAGE, TBGSettings::SETTING_MAINTENANCE_MODE, TBGSettings::SETTING_ICONSET);
+								TBGSettings::SETTING_MAINTENANCE_MESSAGE, TBGSettings::SETTING_MAINTENANCE_MODE, TBGSettings::SETTING_ICONSET, TBGSettings::SETTING_ELEVATED_LOGIN_DISABLED);
 				
 				foreach ($settings as $setting)
 				{
@@ -2090,7 +2095,15 @@
 							switch ($this->action->getActionType())
 							{
 								case TBGWorkflowTransitionAction::ACTION_ASSIGN_ISSUE:
-									$text = ($this->action->getTargetValue()) ? TBGUsersTable::getTable()->selectById((int) $this->action->getTargetValue())->getName() : $this->getI18n()->__('User specified during transition');
+									if ($this->action->hasTargetValue())
+									{
+										$target_details = explode('_', $this->action->getTargetValue());
+										$text = ($target_details[0] == 'user') ? TBGUser::getB2DBTable()->selectById((int) $target_details[1])->getNameWithUsername() : TBGTeam::getB2DBTable()->selectById((int) $target_details[1])->getName();
+									}
+									else
+									{
+										$text = $this->getI18n()->__('User specified during transition');
+									}
 									break;
 								case TBGWorkflowTransitionAction::ACTION_SET_RESOLUTION:
 									$text = ($this->action->getTargetValue()) ? TBGListTypesTable::getTable()->selectById((int) $this->action->getTargetValue())->getName() : $this->getI18n()->__('Resolution specified by user');
@@ -2156,12 +2169,10 @@
 								case TBGWorkflowTransitionValidationRule::RULE_REPRODUCABILITY_VALID:
 								case TBGWorkflowTransitionValidationRule::RULE_RESOLUTION_VALID:
 								case TBGWorkflowTransitionValidationRule::RULE_STATUS_VALID:
+								case TBGWorkflowTransitionValidationRule::RULE_TEAM_MEMBERSHIP_VALID:
 									$this->rule->setRuleValue(join(',', $request['rule_value']));
 									$text = ($this->rule->getRuleValue()) ? $this->rule->getRuleValueAsJoinedString() : $this->getI18n()->__('Any valid value');
 									break;
-								//case TBGWorkflowTransitionValidationRule::RULE_:
-								//	$text = ($this->rule->getRuleValue()) ? $this->rule->getRuleValue() : $this->getI18n()->__('Unlimited');
-								//	break;
 							}
 							$this->rule->save();
 							return $this->renderJSON(array('content' => $text));
