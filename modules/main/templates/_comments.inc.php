@@ -1,11 +1,8 @@
 <?php $module = (isset($module)) ? $module : 'core'; ?>
-<?php if ($target_type == TBGComment::TYPE_ISSUE): ?>
-	<div style="float: right; padding: 5px;"><label><?php echo __('Show system-generated comments'); ?><input type="checkbox" id="comments_show_system_comments_toggle" onchange="$$('#comments_box .system_comment').each(function (elm) { $(elm).toggle(); })" /></label></div>
-<?php endif; ?>
 <?php if ($tbg_user->canPostComments() && ((TBGContext::isProjectContext() && !TBGContext::getCurrentProject()->isArchived()) || !TBGContext::isProjectContext())): ?>
 	<?php if (!isset($show_button) || $show_button == true): ?>
 		<ul class="simple_list" id="add_comment_button_container">
-			<li id="comment_add_button"><input class="button button-green first last" type="button" onclick="$$('.comment_editor').each(Element.hide);$('comment_add_button').hide(); $('comment_add').show();$('comment_bodybox').focus();" value="<?php echo __('Post comment'); ?>"></li>
+			<li id="comment_add_button"><input class="button button-green first last" type="button" onclick="TBG.Main.Comment.showPost();" value="<?php echo __('Post comment'); ?>"></li>
 		</ul>
 	<?php endif; ?>
 	<div id="comment_add" class="comment_add comment_editor" style="<?php if (!(isset($comment_error) && $comment_error)): ?>display: none; <?php endif; ?>margin-top: 5px;">
@@ -19,7 +16,7 @@
 				</select>
 				<br />
 				<label for="comment_bodybox"><?php echo __('Comment'); ?></label><br />
-				<?php include_template('main/textarea', array('area_name' => 'comment_body', 'area_id' => 'comment_bodybox', 'height' => '250px', 'width' => '100%', 'value' => ((isset($comment_error) && $comment_error) ? $comment_error_body : ''))); ?>
+				<?php include_template('main/textarea', array('area_name' => 'comment_body', 'area_id' => 'comment_bodybox', 'height' => '250px', 'width' => '100%', 'syntax' => $tbg_user->getPreferredCommentsSyntax(true), 'value' => ((isset($comment_error) && $comment_error) ? $comment_error_body : ''))); ?>
 				<div id="comment_add_indicator" style="display: none;">
 					<?php echo image_tag('spinning_20.gif'); ?>
 				</div>

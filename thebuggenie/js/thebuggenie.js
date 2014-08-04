@@ -49,7 +49,8 @@ var TBG = {
 		Comment: {},
 		Link: {},
 		Menu: {},
-		Login: {}
+		Login: {},
+		parent_articles: []
 	},
 	Chart: {},
 	Modules: {},
@@ -182,6 +183,7 @@ TBG.Core._extractAutocompleteValue = function(elem, value, event) {
  * Monitors viewport resize to adapt backdrops
  */
 TBG.Core._resizeWatcher = function() {
+	return;
 	TBG.Core._vp_width = document.viewport.getWidth();
 	TBG.Core._vp_height = document.viewport.getHeight();
 	if (($('attach_file') && $('attach_file').visible())) {
@@ -196,6 +198,7 @@ TBG.Core._resizeWatcher = function() {
 };
 
 TBG.Core.popupVisiblizer = function() {
+	return;
 	var visible_popups = $$('.dropdown_box').findAll(function(el) {return el.visible();});
 	if (visible_popups.size()) {
 		visible_popups.each(function (element) {
@@ -846,19 +849,23 @@ TBG.Main.Helpers.setSyntax = function(base_id, syntax) {
 	var ce = $(base_id);
 	var cec = $(base_id).up('.textarea_container');
 
-	ce.removeClassName('syntax_md');
-	ce.removeClassName('syntax_mw');
-	cec.removeClassName('syntax_md');
-	cec.removeClassName('syntax_mw');
+	['mw', 'md', 'pt'].each(function(sntx) {
+		ce.removeClassName('syntax_'+sntx);
+		cec.removeClassName('syntax_'+sntx);
+	});
 
 	ce.addClassName('syntax_' + syntax);
 	cec.addClassName('syntax_' + syntax);
 
-	$(base_id + '_selected_syntax').update((syntax == 'mw') ? 'mediawiki' : 'markdown');
 	$(base_id + '_syntax').setValue(syntax);
 
 	$(base_id + '_syntax_picker').childElements().each(function(elm) {
-		(elm.hasClassName(syntax)) ? elm.addClassName('selected') : elm.removeClassName('selected');
+		if (elm.hasClassName(syntax)) {
+			elm.addClassName('selected');
+			$(base_id + '_selected_syntax').update(elm.dataset.syntaxName);
+		} else {
+			elm.removeClassName('selected');
+		}
 	});
 
 	TBG.Main.Helpers.MarkitUp(ce);
@@ -898,6 +905,135 @@ TBG.Main.updatePercentageLayout = function(arg1, arg2) {
 		$('percent_complete_content').select('.percent_filled').first().style.width = arg1 + '%';
 	}
 };
+
+TBG.Main.showUploader = function(url) {
+	if (window.File && window.FileList && window.FileReader) {
+		url += '&uploader=dynamic';
+	} else {
+		url += '&uploader=legacy';
+	}
+	TBG.Main.Helpers.Backdrop.show(url);
+};
+
+TBG.Main.updateAttachments = function(form) {
+	var url = form.action;
+	TBG.Main.Helpers.ajax(url, {
+		form: form,
+		url_method: 'post',
+		loading: {
+			indicator: 'attachments_indicator',
+			callback: function() {
+				$('dynamic_uploader_submit').addClassName('disabled');
+				$('dynamic_uploader_submit').disable();
+			}
+		},
+		success: {
+			callback: function(json) {
+				var base = $(json.container_id);
+				if (base !== undefined) {
+					base.update('');
+					json.files.each(function(file_elm) {
+						base.insert(file_elm);
+					});
+				}
+				TBG.Main.Helpers.Backdrop.reset();
+			}
+		},
+		complete: {
+			callback: function() {
+				$('dynamic_uploader_submit').addClassName('disabled');
+				$('dynamic_uploader_submit').disable();
+			}
+		}
+	});
+	
+}
+
+TBG.Main.uploadFile = function(url, file) {
+	var fileSize = 0;
+	if (file.size > 1024 * 1024) {
+		fileSize = (Math.round(file.size * 100 / (1024 * 1024)) / 100).toString() + 'MB';
+	} else {
+		fileSize = (Math.round(file.size * 100 / 1024) / 100).toString() + 'KB';
+	}
+	var ful = $('file_upload_list');
+	var elm = '<li><span class="imagepreview"><img src=""></span>';
+	var isimage = false;
+	if (file.type.indexOf("image") == 0) {
+		isimage = true;
+	}
+	elm += '<label>'+ful.dataset.filenameLabel+'</label><span class="filename">' + file.name + '</span> <span class="filesize">' + fileSize + '</span><br><label>'+ful.dataset.descriptionLabel+'</label><input type="text" class="file_description" value="" placeholder="' + ful.dataset.descriptionPlaceholder + '"> <span class="progress"></span></li>';
+	ful.insert(elm);
+	var inserted_elm = $('file_upload_list').childElements().last();
+	if (isimage) {
+		var image_elm = inserted_elm.down('img');
+		var reader = new FileReader();
+		reader.onload = function(e) {
+			image_elm.src = e.target.result;
+		};
+		reader.readAsDataURL(file);
+	}
+	var progress_elm = inserted_elm.down('.progress');
+	var formData = new FormData();
+	formData.append(file.name, file);
+
+	var xhr = new XMLHttpRequest();
+	xhr.open('POST', url, true);
+	xhr.onload = function(e) { 
+		var data = JSON.parse(this.response);
+		if (data.file_id != undefined) {
+			inserted_elm.insert('<input type="hidden" name="files['+data.file_id+']" value="'+data.file_id+'">');
+			inserted_elm.down('.file_description').name = "file_description["+data.file_id+']';
+		} else {
+			inserted_elm.remove();
+			TBG.Main.Helpers.Message.error(json.error);
+		}
+	};
+
+	xhr.upload.onprogress = function(e) {
+		if (e.lengthComputable) {
+			var percent = (e.loaded / e.total) * 100;
+			progress_elm.setStyle({width: percent + '%'});
+			if (percent == 100) progress_elm.addClassName('completed');
+//					progressBar.textContent = progressBar.value; // Fallback for unsupported browsers.
+		}
+	};
+
+	xhr.send(formData);
+};
+
+TBG.Main.selectFiles = function(elm) {
+	var files = $(elm).files;
+	var url = elm.dataset.uploadUrl;
+	if (files.length > 0) {
+		for (var i = 0, file; file = files[i]; i++) {
+			TBG.Main.uploadFile(url, file);
+		}
+	}
+}
+
+TBG.Main.dragOverFiles = function (evt) {
+	evt.stopPropagation();
+	evt.preventDefault();
+	if (evt.type == "dragover") {
+		$(evt.target).addClassName("file_hover");
+	} else {
+		$(evt.target).removeClassName("file_hover");
+	}
+	evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+}
+
+TBG.Main.dropFiles = function (evt) {
+	var elm = $('file_upload_dummy');
+	var url = elm.dataset.uploadUrl;
+	var files = evt.target.files || evt.dataTransfer.files;
+	TBG.Main.dragOverFiles(evt);
+	if (files.length > 0) {
+		for (var i = 0, file; file = files[i]; i++) {
+			TBG.Main.uploadFile(url, file);
+		}
+	}
+}
 
 TBG.Main.submitIssue = function(url) {
 	if ($('report_issue_submit_button').hasClassName('disabled')) return;
@@ -1170,6 +1306,10 @@ TBG.Main.Profile.clearPopupsAndButtons = function(event) {
 		});
 	}
 	$$('.popup_box').each(function(element) {
+		var prev = $(element).previous();
+		if (prev) {
+			prev.removeClassName('button-pressed');
+		}
 		$(element).hide();
 	});
 }
@@ -1307,6 +1447,13 @@ TBG.Main.setToggleState = function (url, state) {
 	TBG.Main.Helpers.ajax(url, {});
 }
 
+TBG.Main.Comment.showPost = function() {
+	$$('.comment_editor').each(Element.hide);
+	$('comment_add_button').hide();
+	$('comment_add').show();
+	$('comment_bodybox').focus();	
+}
+
 TBG.Main.Comment.remove = function(url, comment_id) {
 	TBG.Main.Helpers.ajax(url, {
 		loading: {
@@ -1316,6 +1463,7 @@ TBG.Main.Comment.remove = function(url, comment_id) {
 		success: {
 			remove: ['comment_delete_indicator_' + comment_id, 'comment_delete_confirm_' + comment_id, 'comment_' + comment_id],
 			callback: function() {
+				TBG.Main.Helpers.Dialog.dismiss();
 				if ($('comments_box').childElements().size() == 0) $('comments_none').show();
 			}
 		},
@@ -3336,7 +3484,6 @@ TBG.Issues.showWorkflowTransition = function(transition_id) {
 };
 
 TBG.Issues.showLog = function(url) {
-	TBG.Main.Helpers.tabSwitcher('tab_log', 'viewissue_menu');
 	if ($('viewissue_log_items').childElements().size() == 0) {
 		TBG.Main.Helpers.ajax(url, {
 			url_method: 'get',
@@ -5304,11 +5451,47 @@ TBG.Main.Helpers.toggler = function (elm) {
 	elm.next().toggle();
 };
 
+TBG.Main.loadParentArticles = function() {
+	if ($('parent_articles_list').childElements().size() == 0) {
+		TBG.Main.Helpers.ajax($('parent_selector_container').dataset.callbackUrl, {
+			loading: {
+				indicator: 'parent_selector_container_indicator',
+			},
+			complete: {
+				callback: function(json) {
+					$('parent_articles_list').update(json.list);
+				}
+			}
+		});
+	}
+}
+
 jQuery(document).ready(function(){
-	TBG.Main.Helpers.MarkitUp($$('textarea'));
+	TBG.Main.Helpers.MarkitUp($$('textarea.markuppable'));
 	(function($) {
-		$("body").on("click", ".dropper", function() {
-			TBG.Main.Helpers.toggler($(this));
+		$("body").on("click", ".dropper", function(e) {
+			var is_visible = (this).hasClassName('button-pressed');
+			TBG.Main.Profile.clearPopupsAndButtons();
+			if (!is_visible) {
+				TBG.Main.Helpers.toggler($(this));
+				e.stopPropagation();
+			}
+		});
+		$("body").on("click", function(e) {
+			TBG.Main.Profile.clearPopupsAndButtons();
+			e.stopPropagation();
+		});
+		$$("textarea").each(function (ta) {
+			ta.on('focus', function(e) {
+				var ec = this.up('.editor_container');
+				if (ec != undefined) ec.addClassName('focussed');
+			});
+		});
+		$$("textarea").each(function (ta) {
+			ta.on('blur', function(e) {
+				var ec = this.up('.editor_container');
+				if (ec != undefined) ec.removeClassName('focussed');
+			});
 		});
 	})(jQuery);
 });

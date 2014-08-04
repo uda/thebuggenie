@@ -993,8 +993,9 @@
 						return $this->renderJSON(array('title' => TBGContext::getI18n()->__('Profile information saved')));
 						break;
 					case 'settings':
-						$this->getUser()->setPreferredSyntax($request['profile_syntax']);
-						$this->getUser()->setPreferWikiMarkdown((bool) $request['prefer_wiki_markdown']);
+						$this->getUser()->setPreferredWikiSyntax($request['syntax_articles']);
+						$this->getUser()->setPreferredIssuesSyntax($request['syntax_issues']);
+						$this->getUser()->setPreferredCommentsSyntax($request['syntax_comments']);
 						$this->getUser()->setKeyboardNavigationEnabled($request['enable_keyboard_navigation']);
 						foreach ($notificationsettings as $setting => $description)
 						{
@@ -1393,9 +1394,9 @@
 			$issue->setIssuetype($this->issuetype_id);
 			$issue->setProject($this->selected_project);
 			if (isset($fields_array['description'])) $issue->setDescription($this->selected_description);
-			if (isset($fields_array['description_syntax'])) $issue->setDescription($this->selected_description_syntax);
+			if (isset($fields_array['description_syntax'])) $issue->setDescriptionSyntax($this->selected_description_syntax);
 			if (isset($fields_array['reproduction_steps'])) $issue->setReproductionSteps($this->selected_reproduction_steps);
-			if (isset($fields_array['reproduction_steps_syntax'])) $issue->setReproductionSteps($this->selected_reproduction_steps_syntax);
+			if (isset($fields_array['reproduction_steps_syntax'])) $issue->setReproductionStepsSyntax($this->selected_reproduction_steps_syntax);
 			if (isset($fields_array['category']) && $this->selected_category instanceof TBGDatatype) $issue->setCategory($this->selected_category->getID());
 			if (isset($fields_array['status']) && $this->selected_status instanceof TBGDatatype) $issue->setStatus($this->selected_status->getID());
 			if (isset($fields_array['reproducability']) && $this->selected_reproducability instanceof TBGDatatype) $issue->setReproducability($this->selected_reproducability->getID());
@@ -1479,6 +1480,18 @@
 					try
 					{
 						$issue = $this->_postIssue();
+						if ($request->hasParameter('files') && $request->hasParameter('file_description'))
+						{
+							$files = $request['files'];
+							$file_descriptions = $request['file_description'];
+							foreach ($files as $file_id => $nothing)
+							{
+								$file = TBGFilesTable::getTable()->selectById((int) $file_id);
+								$file->setDescription($file_descriptions[$file_id]);
+								$file->save();
+								TBGIssueFilesTable::getTable()->addByIssueIDandFileID($issue->getID(), $file->getID());
+							}
+						}
 						if ($request['return_format'] == 'planning')
 						{
 							$this->_loadSelectedProjectAndIssueTypeFromRequestForReportIssueAction($request);
@@ -1747,14 +1760,14 @@
 
 					$issue->setDescription($request->getRawParameter('value'));
 					$issue->setDescriptionSyntax($request->getParameter('value_syntax'));
-					return $this->renderJSON(array('issue_id' => $issue->getID(), 'changed' =>$issue->isDescriptionChanged(), 'field' => array('id' => (int) ($issue->getDescription() != ''), 'name' => tbg_parse_text($issue->getDescription(), false, null, array('issue' => $issue))), 'description' => $issue->getParsedDescription(array('issue' => $issue))));
+					return $this->renderJSON(array('issue_id' => $issue->getID(), 'changed' =>$issue->isDescriptionChanged(), 'field' => array('id' => (int) ($issue->getDescription() != ''), 'name' => $issue->getParsedDescription(array('issue' => $issue))), 'description' => $issue->getParsedDescription(array('issue' => $issue))));
 					break;
 				case 'reproduction_steps':
 					if (!$issue->canEditReproductionSteps()) return $this->renderJSON(array('issue_id' => $issue->getID(), 'changed' =>false, 'error' => TBGContext::getI18n()->__('You do not have permission to perform this action')));
 					
 					$issue->setReproductionSteps($request->getRawParameter('value'));
 					$issue->setReproductionStepsSyntax($request->getParameter('value_syntax'));
-					return $this->renderJSON(array('issue_id' => $issue->getID(), 'changed' =>$issue->isReproductionStepsChanged(), 'field' => array('id' => (int) ($issue->getReproductionSteps() != ''), 'name' => tbg_parse_text($issue->getReproductionSteps(), false, null, array('issue' => $issue))), 'reproduction_steps' => $issue->getParsedReproductionSteps(array('issue' => $issue))));
+					return $this->renderJSON(array('issue_id' => $issue->getID(), 'changed' =>$issue->isReproductionStepsChanged(), 'field' => array('id' => (int) ($issue->getReproductionSteps() != ''), 'name' => $issue->getParsedReproductionSteps(array('issue' => $issue))), 'reproduction_steps' => $issue->getParsedReproductionSteps(array('issue' => $issue))));
 					break;
 				case 'title':
 					if (!$issue->canEditTitle()) return $this->renderJSON(array('issue_id' => $issue->getID(), 'changed' =>false, 'error' => TBGContext::getI18n()->__('You do not have permission to perform this action')));
@@ -2563,6 +2576,96 @@
 			return $this->renderJSON($status);
 		}
 
+		public function runUpdateAttachments(TBGRequest $request)
+		{
+			switch ($request['target']) 
+			{
+				case 'issue':
+					$target = TBGIssuesTable::getTable()->selectById($request['target_id']);
+					$base_id = 'viewissue_files';
+					$container_id = 'viewissue_uploaded_files';
+					$target_identifier = 'issue_id';
+					$target_id = $target->getID();
+					break;
+				case 'article':
+					$target = TBGArticlesTable::getTable()->selectById($request['target_id']);
+					$base_id = 'article_'.mb_strtolower(urldecode($request['article_name'])).'_files';
+					$container_id = 'article_'.$target->getID().'_files';
+					$target_identifier = 'article_name';
+					$target_id = $request['article_name'];
+					break;
+			}
+			$saved_file_ids = $request['files'];
+			$files = array();
+			foreach ($request['file_description'] as $file_id => $description)
+			{
+				$file = TBGFilesTable::getTable()->selectById($file_id);
+				$file->setDescription($description);
+				$file->save();
+				if (in_array($file_id, $saved_file_ids))
+				{
+					$target->attachFile($file);
+				}
+				else
+				{
+					$target->detachFile($file);
+				}
+				$files[] = $this->getComponentHTML('main/attachedfile', array('base_id' => $base_id, 'mode' => $request['target'], $request['target'] => $target, $target_identifier => $target_id, 'file' => $file));
+			}
+			$attachmentcount = ($request['target'] == 'issue') ? $target->countFiles() + $target->countLinks() : $target->countFiles();
+			
+			return $this->renderJSON(array('attached' => 'ok', 'container_id' => $container_id, 'files' => $files, 'attachmentcount' => $attachmentcount));
+		}
+
+		public function runUploadFile(TBGRequest $request)
+		{
+			if (!isset($_SESSION['upload_files']))
+			{
+				$_SESSION['upload_files'] = array();
+			}
+			
+			$files = array();
+			$files_dir = TBGSettings::getUploadsLocalpath();
+			
+			foreach ($request->getUploadedFiles() as $key => $file)
+			{
+				$new_filename = TBGContext::getUser()->getID() . '_' . NOW . '_' . basename($file['name']);
+				if (TBGSettings::getUploadStorage() == 'files')
+				{
+					$filename = $files_dir.$new_filename;
+				}
+				else
+				{
+					$filename = $file['tmp_name'];
+				}
+				TBGLogging::log('Moving uploaded file to '.$filename);
+				if (TBGSettings::getUploadStorage() == 'files' && !move_uploaded_file($file['tmp_name'], $filename))
+				{
+					TBGLogging::log('Moving uploaded file failed!');
+					throw new Exception(TBGContext::getI18n()->__('An error occured when saving the file'));
+				}
+				else
+				{
+					TBGLogging::log('Upload complete and ok, storing upload status and returning filename '.$new_filename);
+					$content_type = TBGFile::getMimeType($filename);
+					$file_object = new TBGFile();
+					$file_object->setRealFilename($new_filename);
+					$file_object->setOriginalFilename(basename($file['name']));
+					$file_object->setContentType($content_type);
+					$file_object->setDescription('');
+					$file_object->setUploadedBy(TBGContext::getUser());
+					if (TBGSettings::getUploadStorage() == 'database')
+					{
+						$file_object->setContent(file_get_contents($filename));
+					}
+					$file_object->save();
+					return $this->renderJSON(array('file_id' => $file_object->getID()));
+				}
+			}
+			
+			return $this->renderJSON(array('error' => $this->getI18n()->__('An error occurred when uploading the file')));
+		}
+
 		public function runUpload(TBGRequest $request)
 		{
 			$apc_exists = TBGRequest::CanGetUploadStatus();
@@ -2896,7 +2999,7 @@
 				$comment->setReplyToComment($request['reply_to_comment_id']);
 				$comment->setModuleName($request['comment_module']);
 				$comment->setIsPublic((bool) $request['comment_visibility']);
-				$comment->setSyntax((int) $request['comment_body_syntax']);
+				$comment->setSyntax($request['comment_body_syntax']);
 				$comment->save();
 
 				if ($comment_applies_type == TBGComment::TYPE_ISSUE)
@@ -3083,6 +3186,11 @@
 						$options = $request->getParameters();
 						$options['content'] = $this->getComponentHTML('login', array('section' => $request->getParameter('section', 'login')));
 						$options['mandatory'] = false;
+						break;
+					case 'uploader':
+						$template_name = 'main/uploader';
+						$options = $request->getParameters();
+						$options['uploader'] = ($request['uploader'] == 'dynamic') ? 'dynamic' : 'standard';
 						break;
 					case 'openid':
 						$template_name = 'main/openid';

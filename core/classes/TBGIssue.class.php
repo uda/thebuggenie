@@ -2030,23 +2030,26 @@
 		 */
 		public function attachFile(TBGFile $file, $file_comment = '', $description = '')
 		{
-			TBGIssueFilesTable::getTable()->addByIssueIDandFileID($this->getID(), $file->getID());
-			$comment = new TBGComment();
-			$comment->setPostedBy(TBGContext::getUser()->getID());
-			$comment->setTargetID($this->getID());
-			$comment->setTargetType(TBGComment::TYPE_ISSUE);
-			if ($file_comment)
+			$existed = !TBGIssueFilesTable::getTable()->addByIssueIDandFileID($this->getID(), $file->getID());
+			if (!$existed)
 			{
-				$comment->setContent(TBGContext::getI18n()->__('A file was uploaded. %link_to_file This comment was attached: %comment', array('%comment' => "\n\n".$file_comment, '%link_to_file' => "[[File:{$file->getOriginalFilename()}|thumb|{$description}]]")));
-			}
-			else
-			{
-				$comment->setContent(TBGContext::getI18n()->__('A file was uploaded. %link_to_file', array('%link_to_file' => "[[File:{$file->getOriginalFilename()}|thumb|{$description}]]")));
-			}
-			$comment->save();
-			if ($this->_files !== null)
-			{
-				$this->_files[$file->getID()] = $file;
+				$comment = new TBGComment();
+				$comment->setPostedBy(TBGContext::getUser()->getID());
+				$comment->setTargetID($this->getID());
+				$comment->setTargetType(TBGComment::TYPE_ISSUE);
+				if ($file_comment)
+				{
+					$comment->setContent(TBGContext::getI18n()->__('A file was uploaded. %link_to_file This comment was attached: %comment', array('%comment' => "\n\n".$file_comment, '%link_to_file' => "[[File:{$file->getOriginalFilename()}|thumb|{$description}]]")));
+				}
+				else
+				{
+					$comment->setContent(TBGContext::getI18n()->__('A file was uploaded. %link_to_file', array('%link_to_file' => "[[File:{$file->getOriginalFilename()}|thumb|{$description}]]")));
+				}
+				$comment->save();
+				if ($this->_files !== null)
+				{
+					$this->_files[$file->getID()] = $file;
+				}
 			}
 		}
 
@@ -2334,6 +2337,8 @@
 		{
 			switch ($syntax)
 			{
+				case TBGSettings::SYNTAX_PT:
+					$options = array('plain' => true);
 				case TBGSettings::SYNTAX_MW:
 					$wiki_parser = new TBGTextParser($text);
 					foreach ($options as $option => $value)
@@ -2378,7 +2383,7 @@
 		 */
 		public function setDescriptionSyntax($syntax)
 		{
-			if (!is_numeric($syntax)) $syntax = ($syntax == 'mw') ? TBGSettings::SYNTAX_MW : TBGSettings::SYNTAX_MD;
+			if (!is_numeric($syntax)) $syntax = TBGSettings::getSyntaxValue($syntax);
 
 			$this->_addChangedProperty('_description_syntax', $syntax);
 		}
@@ -2425,7 +2430,7 @@
 		 */
 		public function setReproductionStepsSyntax($syntax)
 		{
-			if (!is_numeric($syntax)) $syntax = ($syntax == 'mw') ? TBGSettings::SYNTAX_MW : TBGSettings::SYNTAX_MD;
+			if (!is_numeric($syntax)) $syntax = TBGSettings::getSyntaxValue($syntax);
 
 			$this->_addChangedProperty('_reproduction_steps_syntax', $syntax);
 		}
@@ -4499,7 +4504,7 @@
 								$this->addLogEntry(TBGLogTable::LOG_ISSUE_UPDATE_DESCRIPTION, TBGContext::getI18n()->__("Description updated"), $original_value, $compare_value);
 								break;
 							case '_reproduction_steps':
-								$this->addLogEntry(TBGLogTable::LOG_ISSUE_REPRODUCABILITY, TBGContext::getI18n()->__("Reproduction steps updated"), $original_value, $compare_value);
+								$this->addLogEntry(TBGLogTable::LOG_ISSUE_UPDATE_REPRODUCTIONSTEPS, TBGContext::getI18n()->__("Reproduction steps updated"), $original_value, $compare_value);
 								break;
 							case '_category':
 								if ($original_value != 0)

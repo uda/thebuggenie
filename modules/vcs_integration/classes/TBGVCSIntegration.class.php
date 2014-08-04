@@ -69,8 +69,8 @@
 		{
 			TBGEvent::listen('core', 'project_sidebar_links', array($this, 'listen_project_links'));
 			TBGEvent::listen('core', 'breadcrumb_project_links', array($this, 'listen_breadcrumb_links'));
-			TBGEvent::listen('core', 'viewissue_tabs', array($this, 'listen_viewissue_tab'));
-			TBGEvent::listen('core', 'viewissue_tab_panes_back', array($this, 'listen_viewissue_panel'));
+			TBGEvent::listen('core', 'get_backdrop_partial', array($this, 'listen_getcommit'));
+			TBGEvent::listen('core', 'viewissue_left_after_attachments', array($this, 'listen_viewissue_panel'));
 			TBGEvent::listen('core', 'config_project_tabs', array($this, 'listen_projectconfig_tab'));
 			TBGEvent::listen('core', 'config_project_panes', array($this, 'listen_projectconfig_panel'));
 			TBGEvent::listen('core', 'project_header_buttons', array($this, 'listen_projectheader'));
@@ -392,12 +392,11 @@
 			TBGActionComponent::includeTemplate('vcs_integration/projectconfig_panel', array('selected_tab' => $event->getParameter('selected_tab'), 'access_level' => $event->getParameter('access_level'), 'project' => $event->getParameter('project')));
 		}
 		
-		public function listen_viewissue_tab(TBGEvent $event)
+		public function listen_getcommit(TBGEvent $event)
 		{
-			if (TBGContext::getModule('vcs_integration')->getSetting('vcs_mode_' . TBGContext::getCurrentProject()->getID()) == TBGVCSIntegration::MODE_DISABLED): return; endif;
-				
-			$count = count(TBGVCSIntegrationIssueLink::getCommitsByIssue($event->getSubject()));
-			TBGActionComponent::includeTemplate('vcs_integration/viewissue_tab', array('count' => $count));
+			$event->setReturnValue('vcs_integration/commitbackdrop');
+			$event->addToReturnList(TBGContext::getRequest()->getParameter('commit_id'), 'commit_id');
+			$event->setProcessed();
 		}
 		
 		public function listen_viewissue_panel(TBGEvent $event)
@@ -405,23 +404,7 @@
 			if (TBGContext::getModule('vcs_integration')->getSetting('vcs_mode_' . TBGContext::getCurrentProject()->getID()) == TBGVCSIntegration::MODE_DISABLED): return; endif;
 
 			$links = TBGVCSIntegrationIssueLink::getCommitsByIssue($event->getSubject());
-			
-			if (count($links) == 0 || !is_array($links))
-			{
-				TBGActionComponent::includeTemplate('vcs_integration/viewissue_commits_top', array('items' => false));
-			}
-			else
-			{
-				TBGActionComponent::includeTemplate('vcs_integration/viewissue_commits_top', array('items' => true));
-				
-				/* Now produce each box */
-				foreach ($links as $link)
-				{
-					include_template('vcs_integration/commitbox', array("projectId" => $event->getSubject()->getProject()->getID(), "commit" => $link->getCommit()));
-				}
-				
-				TBGActionComponent::includeTemplate('vcs_integration/viewissue_commits_bottom');
-			}
+			TBGActionComponent::includeTemplate('vcs_integration/viewissue_commits', array('links' => $links, 'projectId' => $event->getSubject()->getProject()->getID()));
 		}
 		
 		public static function processCommit(TBGProject $project, $commit_msg, $old_rev, $new_rev, $date = null, $changed, $author, $branch = null)
@@ -453,11 +436,11 @@
 			$transitions = $parsed_commit["transitions"];
 
 			// If no issues exist, we may not be able to continue
-			if (count($issues) == 0)
-			{
-				$output .= '[VCS '.$project->getKey().'] This project only accepts commits which affect issues' . "\n";
-				return $output;
-			}
+//			if (count($issues) == 0)
+//			{
+//				$output .= '[VCS '.$project->getKey().'] This project only accepts commits which affect issues' . "\n";
+//				return $output;
+//			}
 			
 			// Build list of affected files
 			$file_lines = preg_split('/[\n\r]+/', $changed);
@@ -475,7 +458,6 @@
 			}
 			
 			// Find author of commit, fallback is guest
-			$uid = 0;
 			
 			/*
 			 * Some VCSes use a different format of storing the committer's name. Systems like bzr, git and hg use the format
@@ -492,17 +474,9 @@
 				$email = $matches[0];
 
 				// a)
-				$crit = new \b2db\Criteria();
-				$crit->setFromTable(TBGUsersTable::getTable());
-				$crit->addSelectionColumn(TBGUsersTable::ID);
-				$crit->addWhere(TBGUsersTable::EMAIL, $email);
-				$row = TBGUsersTable::getTable()->doSelectOne($crit);
+				$user = TBGUsersTable::getTable()->getByEmail($email);
 				
-				if ($row != null)
-				{
-					$uid = $row->get(TBGUsersTable::ID);
-				}
-				else
+				if (!$user instanceof TBGUser)
 				{
 					// Not found by email
 					preg_match("/(?<=^)(.*)(?= <)/", $author, $matches);
@@ -511,69 +485,20 @@
 			}
 
 			// b)
-			
-			if ($uid == 0)
-			{
-				$crit = new \b2db\Criteria();
-				$crit->setFromTable(TBGUsersTable::getTable());
-				$crit->addSelectionColumn(TBGUsersTable::ID);
-				$crit->addWhere(TBGUsersTable::REALNAME, $author);
-				$row = TBGUsersTable::getTable()->doSelectOne($crit);
-				
-				if ($row != null)
-				{
-					$uid = $row->get(TBGUsersTable::ID);
-				}
-			}
+			if (!$user instanceof TBGUser)
+				$user = TBGUsersTable::getTable()->getByRealname($author);
 			
 			// c)
-			
-			if ($uid == 0)
-			{
-				$crit = new \b2db\Criteria();
-				$crit->setFromTable(TBGUsersTable::getTable());
-				$crit->addSelectionColumn(TBGUsersTable::ID);
-				$crit->addWhere(TBGUsersTable::BUDDYNAME, $author);
-				$row = TBGUsersTable::getTable()->doSelectOne($crit);
-				
-				if ($row != null)
-				{
-					$uid = $row->get(TBGUsersTable::ID);
-				}
-			}
+			if (!$user instanceof TBGUser)
+				$user = TBGUsersTable::getTable()->getByBuddyname($author);
 			
 			// d)
-			
-			if ($uid == 0)
-			{
-				$crit = new \b2db\Criteria();
-				$crit->setFromTable(TBGUsersTable::getTable());
-				$crit->addSelectionColumn(TBGUsersTable::ID);
-				$crit->addWhere(TBGUsersTable::UNAME, $author);
-				$row = TBGUsersTable::getTable()->doSelectOne($crit);
-				
-				if ($row != null)
-				{
-					$uid = $row->get(TBGUsersTable::ID);
-				}
-			}
+			if (!$user instanceof TBGUser)
+				$user = TBGUsersTable::getTable()->getByUsername($author);
 			
 			// e)
-			
-			if ($uid == 0)
-			{
-				$uid = TBGSettings::getDefaultUserID();
-			}
-			
-			try
-			{
-				$user = TBGContext::factory()->TBGUser($uid);
-			}
-			catch (Exception $e)
-			{
-				$user = TBGContext::factory()->TBGUser(TBGSettings::getDefaultUserID());
-				$uid = TBGSettings::getDefaultUserID();
-			}
+			if (!$user instanceof TBGUser)
+				$user = TBGSettings::getDefaultUser();
 			
 			TBGContext::setUser($user);
 			TBGSettings::forceSettingsReload();
@@ -667,7 +592,7 @@
 					}
 				}
 
-				$issue->addSystemComment(TBGContext::getI18n()->__('This issue has been updated with the latest changes from the code repository.<source>%commit_msg</source>', array('%commit_msg' => $commit_msg)), $uid);
+				$issue->addSystemComment(TBGContext::getI18n()->__('This issue has been updated with the latest changes from the code repository.<source>%commit_msg</source>', array('%commit_msg' => $commit_msg)), $user->getID());
 				$output .= '[VCS '.$project->getKey().'] Updated issue ' . $issue->getFormattedIssueNo() . "\n";
 			}
 			

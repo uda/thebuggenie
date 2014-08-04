@@ -296,7 +296,7 @@
 				</tr>
 				<tr>
 					<td colspan="2" style="padding-top: 5px;">
-						<?php include_template('main/textarea', array('area_name' => 'description', 'height' => ($tbg_request->isAjaxCall() ? '150px' : '250px'), 'width' => '990px', 'value' => ((isset($selected_description)) ? $selected_description : null))); ?>
+						<?php include_template('main/textarea', array('area_name' => 'description', 'height' => ($tbg_request->isAjaxCall() ? '150px' : '250px'), 'width' => '990px', 'syntax' => $tbg_user->getPreferredIssuesSyntax(true), 'value' => ((isset($selected_description)) ? $selected_description : null))); ?>
 					</td>
 				</tr>
 			</table>
@@ -307,10 +307,13 @@
 				</tr>
 				<tr>
 					<td colspan="2" style="padding-top: 5px;">
-						<?php include_template('textarea', array('area_name' => 'reproduction_steps', 'height' => '250px', 'width' => '990px', 'value' => ((isset($selected_reproduction_steps)) ? $selected_reproduction_steps : null))); ?>
+						<?php include_template('textarea', array('area_name' => 'reproduction_steps', 'height' => '250px', 'width' => '990px', 'syntax' => $tbg_user->getPreferredIssuesSyntax(true), 'value' => ((isset($selected_reproduction_steps)) ? $selected_reproduction_steps : null))); ?>
 					</td>
 				</tr>
 			</table>
+			<?php if ($canupload): ?>
+				<?php include_component('main/dynamicuploader'); ?>
+			<?php endif; ?>
 			<div class="reportissue_additional_information_container">
 				<table cellpadding="0" cellspacing="0" id="edition_div" style="display: none;" class="additional_information<?php if (array_key_exists('edition', $errors)): ?> reportissue_error<?php endif; ?>">
 					<tr>
@@ -614,7 +617,7 @@
 										case TBGCustomDatatype::INPUT_TEXTAREA_SMALL:
 										case TBGCustomDatatype::INPUT_TEXTAREA_MAIN:
 											?>
-											<?php include_template('main/textarea', array('area_name' => $customdatatype->getKey().'_value', 'area_id' => $customdatatype->getKey().'_value', 'height' => '75px', 'width' => '100%', 'value' => $selected_customdatatype[$customdatatype->getKey()])); ?>
+											<?php include_template('main/textarea', array('area_name' => $customdatatype->getKey().'_value', 'area_id' => $customdatatype->getKey().'_value', 'height' => '75px', 'width' => '100%', 'syntax' => $tbg_user->getPreferredIssuesSyntax(true), 'value' => $selected_customdatatype[$customdatatype->getKey()])); ?>
 											<?php
 											break;
 									}
@@ -643,8 +646,6 @@
 				<p><?php echo __('Specify additional information by clicking the links below before submitting your issue'); ?></p>
 				<p id="reportissue_extrafields_none" style="display: none;"><?php echo __('No additional actions available'); ?></p>
 				<ul id="reportissue_extrafields">
-					<?php /*<li><?php echo image_tag('icon_file.png'); ?><a href="javascript:void(0);" onclick="TBG.Main.Helpers.Message.success('<?php echo __('Please file the issue before attaching a file'); ?>');"><?php echo __('Attach a file'); ?></a></li>
-					<li><?php echo image_tag('icon_link.png'); ?><a href="javascript:void(0);" onclick="TBG.Main.Helpers.Message.success('<?php echo __('Please file the issue before attaching a link'); ?>');"><?php echo __('Add a link'); ?></a></li> */ ?>
 					<li id="status_additional" style="display: none;">
 						<?php echo image_tag('icon_status.png'); ?>
 						<div id="status_link"<?php if ($selected_status instanceof TBGStatus): ?> style="display: none;"<?php endif; ?>><a href="javascript:void(0);" onclick="$('status_link').hide();$('status_additional_div').show();"><?php echo __('Set initial status'); ?></a></div>
@@ -906,3 +907,4 @@
 		</div>
 	<?php endif; ?>
 </form>
+	

@@ -36,26 +36,6 @@
 				</div>
 			<?php endif; ?>
 		</li>
-		<li id="posted_at_field" class="issue_detail_field primary">
-			<dl class="viewissue_list">
-				<dt id="posted_at_header">
-					<?php echo __('Posted at'); ?>
-				</dt>
-				<dd class="hoverable">
-					<time datetime="<?php echo tbg_formatTime($issue->getPosted(), 24); ?>" title="<?php echo tbg_formatTime($issue->getPosted(), 21); ?>" pubdate><?php echo tbg_formatTime($issue->getPosted(), 20); ?></time>
-				</dd>
-			</dl>
-		</li>
-		<li id="updated_at_field" class="issue_detail_field">
-			<dl class="viewissue_list">
-				<dt id="updated_at_header">
-					<?php echo __('Last updated'); ?>
-				</dt>
-				<dd class="hoverable">
-					<time datetime="<?php echo tbg_formatTime($issue->getLastUpdatedTime(), 24); ?>" title="<?php echo tbg_formatTime($issue->getLastUpdatedTime(), 21); ?>"><?php echo tbg_formatTime($issue->getLastUpdatedTime(), 20); ?></time>
-				</dd>
-			</dl>
-		</li>
 		<?php $field = $fields_list['category']; unset($fields_list['category']); ?>
 		<?php include_template('main/issuedetailslistfield', array('field' => 'category', 'info' => $field, 'issue' => $issue)); ?>
 		<?php $field = $fields_list['milestone']; unset($fields_list['milestone']); ?>
@@ -353,11 +333,28 @@
 	</ul>
 </fieldset>
 <fieldset id="issue_timetracking_container">
-	<legend onclick="$('issue_details_fieldslist_time').toggle();"><?php echo __('Time tracking'); ?></legend>
-	<?php if ($issue->canEditSpentTime()): ?>
-		<a class="button button-silver" id="issue_timetracking_log_time" href="javascript:void(0)" onclick="TBG.Main.Helpers.Backdrop.show('<?php echo make_url('get_partial_for_backdrop', array('key' => 'issue_spenttimes', 'issue_id' => $issue->getID(), 'initial_view' => 'entry')); ?>');"><?php echo __('Log time spent'); ?></a>
-	<?php endif; ?>
+	<legend onclick="$('issue_details_fieldslist_time').toggle();"><?php echo __('Times and dates'); ?></legend>
 	<ul class="issue_details simple_list" id="issue_details_fieldslist_time">
+		<li id="posted_at_field" class="issue_detail_field primary">
+			<dl class="viewissue_list">
+				<dt id="posted_at_header">
+					<?php echo __('Posted at'); ?>
+				</dt>
+				<dd class="hoverable">
+					<time datetime="<?php echo tbg_formatTime($issue->getPosted(), 24); ?>" title="<?php echo tbg_formatTime($issue->getPosted(), 21); ?>" pubdate><?php echo tbg_formatTime($issue->getPosted(), 20); ?></time>
+				</dd>
+			</dl>
+		</li>
+		<li id="updated_at_field" class="issue_detail_field">
+			<dl class="viewissue_list">
+				<dt id="updated_at_header">
+					<?php echo __('Last updated'); ?>
+				</dt>
+				<dd class="hoverable">
+					<time datetime="<?php echo tbg_formatTime($issue->getLastUpdatedTime(), 24); ?>" title="<?php echo tbg_formatTime($issue->getLastUpdatedTime(), 21); ?>"><?php echo tbg_formatTime($issue->getLastUpdatedTime(), 20); ?></time>
+				</dd>
+			</dl>
+		</li>
 		<li id="estimated_time_field"<?php if (!$issue->isEstimatedTimeVisible()): ?> style="display: none;"<?php endif; ?> class="issue_detail_field<?php if ($issue->isEstimatedTimeChanged()): ?> issue_detail_changed<?php endif; ?><?php if (!$issue->isEstimatedTimeMerged()): ?> issue_detail_unmerged<?php endif; ?>">
 			<dl class="viewissue_list">
 				<dt id="estimated_time_header"><?php echo __('Estimated time'); ?></dt>
@@ -652,7 +649,7 @@
 		<div class="no_items" id="viewissue_no_uploaded_files"<?php if (count($issue->getFiles()) + count($issue->getLinks()) > 0): ?> style="display: none;"<?php endif; ?>><?php echo __('There is nothing attached to this issue'); ?></div>
 		<ul class="attached_items" id="viewissue_uploaded_links">
 			<?php foreach ($issue->getLinks() as $link_id => $link): ?>
-				<?php include_template('attachedlink', array('issue' => $issue, 'link' => $link, 'link_id' => $link_id)); ?>
+				<?php include_template('attachedlink', array('issue' => $issue, 'link' => $link, 'link_id' => $link['id'])); ?>
 			<?php endforeach; ?>
 		</ul>
 		<ul class="attached_items" id="viewissue_uploaded_files">
@@ -662,6 +659,7 @@
 		</ul>
 	</div>
 </fieldset>
+<?php TBGEvent::createNew('core', 'viewissue_left_after_attachments', $issue)->trigger(); ?>
 <fieldset id="viewissue_related_information_container">
 	<legend>
 		<?php echo image_tag('spinning_16.gif', array('style' => 'display: none;', 'id' => 'related_issues_indicator')) . __('Child issues (%count)', array('%count' => '<span id="viewissue_related_issues_count">'.count($issue->getChildIssues()).'</span>')); ?>

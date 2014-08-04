@@ -10,7 +10,7 @@
 <?php if ($file instanceof TBGFile): ?>
 	<li id="<?php echo $base_id . '_' . $file_id; ?>" class="attached_item <?php if ($file->isImage()) echo 'file_image'; ?>">
 		<?php if ($file->isImage()): ?>
-			<a href="<?php echo make_url('downloadfile', array('id' => $file_id)); ?>" class="imagepreview" title="<?php echo ($file->hasDescription()) ? $file->getDescription() : $file->getOriginalFilename(); ?>"><?php echo image_tag(make_url('showfile', array('id' => $file_id)), array(), true); ?></a>
+			<a href="<?php echo make_url('showfile', array('id' => $file_id)); ?>" target="_new" class="imagepreview" title="<?php echo ($file->hasDescription()) ? $file->getDescription() : $file->getOriginalFilename(); ?>"><?php echo image_tag(make_url('showfile', array('id' => $file_id)), array(), true); ?></a>
 			<div class="embedlink removelink">
 				<?php echo javascript_link_tag(image_tag('action_embed.png'), array('onclick' => "TBG.Main.Helpers.Dialog.showModal('".__('Embedding this file in descriptions or comments')."', '".__('Use this tag to include this image: [[Image:%filename|thumb|Image description]]', array('%filename' => $file->getOriginalFilename()))."');")); ?>
 			</div>
@@ -31,11 +31,7 @@
 			</div>
 		<?php endif; ?>
 		<div class="upload_details">
-			<?php echo __('%filename, uploaded %date', array('%filename' => '<span class="filename">'.$file->getOriginalFilename().'</span>', '%date' => tbg_formatTime($file->getUploadedAt(), 23))); ?>
-			<?php if ($mode == 'article' && $article->canEdit() && $file->isImage()): ?>
-				<br>
-				<?php echo __('Use this tag to include this image: [[Image:%filename|thumb|Image description]]', array('%filename' => $file->getOriginalFilename())); ?>
-			<?php endif; ?>
+			<?php echo __('%filename uploaded %date by %username', array('%filename' => '<span class="filename">'.$file->getOriginalFilename().'</span>', '%date' => tbg_formatTime($file->getUploadedAt(), 23), '%username' => (($file->getUploadedBy() instanceof TBGUser) ? '<a href="javascript:void(0);" onclick="TBG.Main.Helpers.Backdrop.show(\'' . make_url('get_partial_for_backdrop', array('key' => 'usercard', 'user_id' => $article->getAuthor()->getID())) . '\');" class="faded_out">' . $file->getUploadedBy()->getNameWithUsername() . '</a>' : __('unknown user')))); ?>
 		</div>
 	</li>
 <?php else: ?>

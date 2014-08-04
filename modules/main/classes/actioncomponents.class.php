@@ -18,7 +18,14 @@
 				if (!$this->user instanceof TBGUser)
 				{
 					TBGLogging::log('loading user object in dropdown');
-					$this->user = TBGContext::factory()->TBGUser($this->user);
+					if (is_numeric($this->user))
+					{
+						$this->user = TBGUsersTable::getTable()->getByUserId($this->user);
+					}
+					else
+					{
+						$this->user = TBGUsersTable::getTable()->getByUsername($this->user);
+					}
 					TBGLogging::log('done (loading user object in dropdown)');
 				}
 			}
@@ -265,6 +272,42 @@
 			switch ($this->mode)
 			{
 				case 'issue':
+					$this->issue = TBGIssuesTable::getTable()->selectById($this->issue_id);
+					break;
+				case 'article':
+					$this->article = TBGWikiArticle::getByName($this->article_name);
+					break;
+				default:
+					// @todo: dispatch a TBGEvent that allows us to retrieve the
+					// necessary variables from anyone catching it
+					break;
+			}
+		}
+
+		public function componentDynamicUploader()
+		{
+			switch (true)
+			{
+				case isset($this->issue):
+					$this->target = $this->issue;
+					$this->existing_files = $this->issue->getFiles();
+					break;
+				case isset($this->article):
+					$this->target = $this->article;
+					$this->existing_files = $this->article->getFiles();
+					break;
+				default:
+					// @todo: dispatch a TBGEvent that allows us to retrieve the
+					// necessary variables from anyone catching it
+					break;
+			}
+		}
+		
+		public function componentStandarduploader()
+		{
+			switch ($this->mode)
+			{
+				case 'issue':
 					$this->form_action = make_url('issue_upload', array('issue_id' => $this->issue->getID()));
 					$this->poller_url = make_url('issue_upload_status', array('issue_id' => $this->issue->getID()));
 					$this->existing_files = $this->issue->getFiles();
@@ -501,6 +544,9 @@
 			$this->reporthelparticle = ($reporthelparticle instanceof TBGWikiArticle) ? $reporthelparticle : TBGArticlesTable::getTable()->getArticleByName('ReportIssueHelp');
 			$this->uniqid = TBGContext::getRequest()->getParameter('uniqid', uniqid());
 			$this->_setupReportIssueProperties();
+			$dummyissue = new TBGIssue();
+			$dummyissue->setProject(TBGContext::getCurrentProject());
+			$this->canupload = (TBGSettings::isUploadsEnabled() && $dummyissue->canAttachFiles());
 		}
 
 		public function componentReportIssueContainer()

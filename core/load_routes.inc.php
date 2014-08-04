@@ -57,6 +57,7 @@
 	$routes[] = array('api_list_issuefields', '/api/:api_username/list/issuefields/for/:project_key/type/:issuetype/:format', 'remote', 'listIssuefields');
 	$routes[] = array('api_list_fieldvalues', '/api/:api_username/list/fieldvalues/for/field/:field_key/:format/*', 'remote', 'listFieldvalues');
 	$routes[] = array('get_partial_for_backdrop', '/get/partials/:key/*', 'main', 'getBackdropPartial');
+	$routes[] = array('update_attachments', '/attachments/for/:target/:target_id', 'main', 'updateAttachments');
 	$routes[] = array('issue_upload', '/upload/to/issue/:issue_id', 'main', 'upload', array('mode' => 'issue'));
 	$routes[] = array('article_upload', '/upload/to/article/:article_name', 'main', 'upload', array('mode' => 'article'));
 	$routes[] = array('showfile', '/files/show/:id', 'main', 'getFile', array('mode' => 'show'));
@@ -70,6 +71,7 @@
 	$routes[] = array('issue_remove_link', '/upload/remove/link/:link_id/from/issue/:issue_id', 'main', 'removeLinkFromIssue');
 	$routes[] = array('upload_status', '/upload/get/status/for/:mode', 'main', 'getUploadStatus');
 	$routes[] = array('upload', '/upload/:mode', 'main', 'upload');
+	$routes[] = array('upload_file', '/uploadfile', 'main', 'uploadFile');
 	$routes[] = array('account_add_application_password', '/account/add/password/*', 'main', 'accountAddPassword', array(), true);
 	$routes[] = array('account_remove_application_password', '/account/remove/password/:id/:csrf_token', 'main', 'accountRemovePassword', array(), true);
 	$routes[] = array('account_regenerate_rss_key', '/account/regenerate/rsskey/:csrf_token', 'main', 'accountRegenerateRssKey', array(), true);
@@ -225,7 +227,8 @@
 	$routes[] = array('move_issue', '/issue/:issue_id/move', 'main', 'moveIssue');
 	$routes[] = array('captcha', '/captcha/*', 'main', 'captcha');
 	$routes[] = array('publish', '/wiki', 'publish', 'showArticle', array('article_name' => 'MainPage'));
-	$routes[] = array('publish_article_new', '/wiki/new', 'publish', 'editArticle', array('article_name' => 'NewArticle'));
+	$routes[] = array('publish_article_new', '/wiki/new/*', 'publish', 'editArticle');
+	$routes[] = array('publish_article_parents', '/wiki/getavailableparents/*', 'publish', 'getAvailableParents');
 	$routes[] = array('publish_article_revision', '/wiki/:article_name/revision/:revision', 'publish', 'showArticle');
 	$routes[] = array('publish_article_edit', '/wiki/:article_name/edit', 'publish', 'editArticle');
 	$routes[] = array('publish_article_permissions', '/wiki/:article_name/permissions', 'publish', 'articlePermissions');

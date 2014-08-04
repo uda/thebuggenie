@@ -11,6 +11,9 @@
 		 */
 		protected $_content_type;
 
+		/**
+		 * @Column(type="integer", length=10, name="uid")
+		 */
 		protected $_uploaded_by;
 
 		/**
@@ -98,7 +101,7 @@
 
 		public function getUploadedBy()
 		{
-			return $this->_uploaded_by;
+			return $this->_b2dbLazyload('_uploaded_by');
 		}
 
 		public function setUploadedBy($uploaded_by)
@@ -162,6 +165,25 @@
 			{
 				unlink($this->getFullpath());
 			}
+		}
+		
+		public function getSize()
+		{
+			return ($this->doesFileExistOnDisk()) ? filesize($this->getFullpath()) : 0;
+		}
+		
+		public function getReadableFilesize()
+		{
+			$size = $this->getSize();
+			if ($size > 1024 * 1024) 
+			{
+				return round(($size * 100 / (1024 * 1024)) / 100, 2) . 'MB';
+			} 
+			else 
+			{
+				return round(($size * 100 / 1024) / 100, 2) . 'KB';
+			}
+			
 		}
 
 		public function getDescription()
